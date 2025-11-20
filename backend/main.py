@@ -12,7 +12,7 @@ from threading import Lock
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=10
+NUM_ARTICLES=3
 
 # Load environment variables from .env file in the backend directory
 BASE_DIR = os.path.dirname(__file__)
