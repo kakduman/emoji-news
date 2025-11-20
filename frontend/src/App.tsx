@@ -85,7 +85,7 @@ function Feed({ news, error }: { news: NewsItem[]; error: string | null }) {
     <>
       <header className="space-y-2 border-b border-slate-200 pb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-rose-600">
-          Hoglin News
+          Schizo News
         </p>
         <h1 className="text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
           Latest drops
@@ -185,7 +185,7 @@ function Article({
   return (
     <article className="space-y-4 pb-10 md:pb-14">
       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-600 md:text-[11px]">
-        Hoglin News
+        Schizo News
       </p>
       <h1 className="text-2xl font-bold leading-snug text-slate-900 md:text-4xl">
         {article.headline}
