@@ -183,22 +183,22 @@ function Article({
   }
 
   return (
-    <article className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-md md:p-8">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-600">
-        Hoglin · Emoji Newswire
+    <article className="space-y-4 pb-10 md:pb-14">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-600 md:text-[11px]">
+        Hoglin News
       </p>
-      <h1 className="text-3xl font-bold leading-tight text-slate-900 md:text-4xl">
+      <h1 className="text-2xl font-bold leading-snug text-slate-900 md:text-4xl">
         {article.headline}
       </h1>
-      <p className="text-xs font-semibold italic uppercase tracking-wide text-slate-500">
+      <p className="text-[11px] font-semibold italic uppercase tracking-wide text-slate-500 md:text-xs">
         {formatDate(article.date)}
       </p>
       <div className="h-px bg-slate-200" />
-      <p className="whitespace-pre-line text-base leading-relaxed text-slate-800">
+      <p className="whitespace-pre-line text-sm leading-relaxed text-slate-800 md:text-base">
         {article.text}
       </p>
       <button
-        className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-[1px]"
+        className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-[1px] md:px-5 md:py-2.5"
         onClick={() => navigate('/')}
       >
         ← Back to feed
