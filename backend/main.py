@@ -12,7 +12,7 @@ from threading import Lock
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=3
+NUM_ARTICLES=10
 
 # Load environment variables from .env file in the backend directory
 BASE_DIR = os.path.dirname(__file__)
@@ -200,18 +200,12 @@ def convert_to_emojipasta(article_text, original_title):
             chat.append(system("""
     You are a text transformation assistant that converts news articles into emojipasta format. You must respond with valid JSON only, no additional text or explanations.
 
-    Example emojipasta style:
-    UH-OH⁉️💢 NEW YORK 😱😩🗽 The polls 🗳️✅ have CLOSED 🍆💦🚫 and the people 👨‍👩‍👧‍👦🫂 have SPOKEN 🗣️💋📢‼️ Who’s that
-    👀😳 tapping ✊🔨 that GAVEL 🔨🏛️ of CITY HALL 🤤? It’s ZOHRAN 👑✨ MOMMY 👩‍🍼 DOMMY 💦🤰🏾, the INCOMING 🫃💥 MAYOR 🧑‍⚖️ of
-    your PANTS 👖‼️ He looked 👀 at your RENT 📈🤢 and said "LET'S FREEZE ❄️🧊 THAT" 🥶💦... he looked at daycare 👶🍼 and said
-    "FREE 🆓 UNIVERSAL 🌍 CHILDCARE" 🍼👩‍🍼... and when the billionaires 🧛‍♂️💰 tried to slide into his DMs 📱, he left their
-    PACs 💼🎁 on READ 👁️📵❌!\n\nHe’s not here to CUT 🪚📉 your taxes 💸😴, he’s here to SPREAD 🫦 YOUR CHEEKS 🍑 and RAISE 📈😍
-    your EXPECTATIONS 🤓📚💫! And we're not just building apartments 🏢, we're giving the whole city a FULL 🍆💦 SUBSIDIZED
-    CLIMAX 💦🎉 where the only thing going UP 📈 is your satisfaction 😩 and the only thing going DOWN 📉 is your rent 🥵! And
-    those buses 🚌? They're not just FREE 🆓, they're giving BACKSHOTS 🏃‍♂️💨🍑 against the schedule ⏱️so frequent 🔄 you'll be
-    seeing stars 🌟💫 on your way to work 💼‼️\n\nSo SEND 📤 this to 5️⃣1️⃣% of your local city council 🧍‍♀️🧍🧍‍♂️ to get DOMMED
-    by MOMMY 🤰\nIf you get 0 back you’re a CUOMO CUCK 👺\nIf you get 5 back you’re a CITY SLUT 🗽👙\nIf you get 20 back you’re a
-    CERTIFIED COMMIE CUNT 💅
+    Example emojipasta style (the below example is short. Yours should be longer):
+    UH-OH⁉️💢 WALL STREET 🤑📉 Cucks 🐔💸 were SWEATING 😰💦 over AI BUBBLE 💥🫧 POP but NVDA 🟢🔥 just DROPPED the MIC 🎤🍆! Revenue for Q3 📊🗓️ to October JUMPED 62% 🚀📈 to a THICC $57BN 💰🍑 – that's AI DATA CENTER CHIPS 🖥️🤖 going BRRRRR 😩💨, with that division SLAYING 66% to $51BN+ 🤯💦! Q4 forecast? $65BN EASY PEASY 🍆🍌 TOPPING estimates like Jensen's leather jacket 🧥😍 at a tech rave! Shares POPPED 4% AFTER HOURS 🌙📈 cuz MOMMY NVDA 👩‍🍼💰 is the WORLD'S RICHEST DADDY 👑🤑 worth TRILLIONS ‼️\n
+    JENSEN HUANG 🕶️👨‍💼🐱 dropping BOMBS 💣📢: 'AI BLACKWELL SYSTEMS OFF THE CHARTS 📊🔥 CLOUD GPUS SOLD OUT 🎰🚫!' No bubble here bby, we EXCEL 📈😤 at EVERY PHASE of AI – from TRAINING 🏋️‍♂️🤖 to INFERENCING 🧠💨! Wall Street simps 🤡📱 were WOKE AF about OVERVALUED HYPE 😱 but NVDA said 'HOLD MY TSMC 🏭🍆' and BEAT by a MILE 🏃‍♂️💨! S&P dipped 3% in Nov 📉😢 but Jensen's got that MAGIC WAND 🪄🍆 fixing markets like Elon fixes Twitter 🚀🐦!\n
+    CFO COLETTE KRESS 💅📈 spilling TEA ☕: MORE ORDERS on top of $500BN AI CHIP BACKLOG 🤑📦 – but salty 😣 about CHINA EXPORT BANS 🚫🇨🇳, 'US gotta WIN EVERY DEV 🧑‍💻🌍!' Meanwhile, JENSEN + ELON MUSK 🐦🚀 teaming up at US-SAUDI FORUM 🤝🏜️ for MASSIVE DATA CENTER 🖥️🏰 in SAUDI with xAI as FIRST CUCK... er, CUSTOMER 👀💦! Hundreds of THOUSANDS Nvidia chips 🚀🖥️ approved by Trump-MBS BROKERED DEAL ✋🇺🇸🇸🇦 – WSJ spilling the deets! 📰🔥\n
+    META ZUCK 🤖💰, ALPHABET PICHai 🧔📱, MSFT SATYA 👨‍💼 dumping BILLIONS on AI DATA CENTERS 🤑🖥️ – Sundar called it 'IRRATIONAL BOOM' 😂🤑 but NVDA at the HEART ❤️🔥 of OPENAI SAM ALTMAN 🤖💋, ANTHROPIC 👽, xAI deals! Circular INVESTMENTS like NVDA's $100BN in CHATGPT DADDY 😍🍆 – it's an AI ORGY 💦👯‍♂️ where EVERYONE'S CUMMING 💨📈 to record highs!\n
+    Adam Turnquist & Matt Britzman simping HARD 🤤: 'Not IF Nvidia beats, but BY HOW MUCH 🍆📏!' NVDA not BREATHING 📉, it's THRUSTING ⬆️😩!
 
     You must output valid JSON with exactly these fields:
     {
