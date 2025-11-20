@@ -73,6 +73,7 @@ def fetch_top_news_article():
 def convert_to_emojipasta(article_text, original_title):
     """
     Use Grok to convert article text to emojipasta format and return structured JSON.
+    Retries up to 10 times if JSON parsing fails.
     """
     api_key = os.getenv("XAI_API_KEY")
     if not api_key:
@@ -83,21 +84,25 @@ def convert_to_emojipasta(article_text, original_title):
         timeout=3600,
     )
 
-    chat = client.chat.create(model="grok-4-1-fast-non-reasoning")
-    chat.append(system("""
+    max_retries = 10
+
+    for attempt in range(max_retries):
+        try:
+            chat = client.chat.create(model="grok-4-1-fast-non-reasoning")
+            chat.append(system("""
     You are a text transformation assistant that converts news articles into emojipasta format. You must respond with valid JSON only, no additional text or explanations.
 
     Example emojipasta style:
-    UH-OH⁉️💢 NEW YORK 😱😩🗽 The polls 🗳️✅ have CLOSED 🍆💦🚫 and the people 👨‍👩‍👧‍👦🫂 have SPOKEN 🗣️💋📢‼️ Who’s that 
-    👀😳 tapping ✊🔨 that GAVEL 🔨🏛️ of CITY HALL 🤤? It’s ZOHRAN 👑✨ MOMMY 👩‍🍼 DOMMY 💦🤰🏾, the INCOMING 🫃💥 MAYOR 🧑‍⚖️ of 
-    your PANTS 👖‼️ He looked 👀 at your RENT 📈🤢 and said "LET'S FREEZE ❄️🧊 THAT" 🥶💦... he looked at daycare 👶🍼 and said 
-    "FREE 🆓 UNIVERSAL 🌍 CHILDCARE" 🍼👩‍🍼... and when the billionaires 🧛‍♂️💰 tried to slide into his DMs 📱, he left their 
-    PACs 💼🎁 on READ 👁️📵❌! He’s not here to CUT 🪚📉 your taxes 💸😴, he’s here to SPREAD 🫦 YOUR CHEEKS 🍑 and RAISE 📈😍 
-    your EXPECTATIONS 🤓📚💫! And we're not just building apartments 🏢, we're giving the whole city a FULL 🍆💦 SUBSIDIZED 
-    CLIMAX 💦🎉 where the only thing going UP 📈 is your satisfaction 😩 and the only thing going DOWN 📉 is your rent 🥵! And 
-    those buses 🚌? They're not just FREE 🆓, they're giving BACKSHOTS 🏃‍♂️💨🍑 against the schedule ⏱️so frequent 🔄 you'll be 
-    seeing stars 🌟💫 on your way to work 💼‼️ So SEND 📤 this to 5️⃣1️⃣% of your local city council 🧍‍♀️🧍🧍‍♂️ to get DOMMED 
-    by MOMMY 🤰 If you get 0 back you’re a CUOMO CUCK 👺 If you get 5 back you’re a CITY SLUT 🗽👙 If you get 20 back you’re a 
+    UH-OH⁉️💢 NEW YORK 😱😩🗽 The polls 🗳️✅ have CLOSED 🍆💦🚫 and the people 👨‍👩‍👧‍👦🫂 have SPOKEN 🗣️💋📢‼️ Who’s that
+    👀😳 tapping ✊🔨 that GAVEL 🔨🏛️ of CITY HALL 🤤? It’s ZOHRAN 👑✨ MOMMY 👩‍🍼 DOMMY 💦🤰🏾, the INCOMING 🫃💥 MAYOR 🧑‍⚖️ of
+    your PANTS 👖‼️ He looked 👀 at your RENT 📈🤢 and said "LET'S FREEZE ❄️🧊 THAT" 🥶💦... he looked at daycare 👶🍼 and said
+    "FREE 🆓 UNIVERSAL 🌍 CHILDCARE" 🍼👩‍🍼... and when the billionaires 🧛‍♂️💰 tried to slide into his DMs 📱, he left their
+    PACs 💼🎁 on READ 👁️📵❌! He’s not here to CUT 🪚📉 your taxes 💸😴, he’s here to SPREAD 🫦 YOUR CHEEKS 🍑 and RAISE 📈😍
+    your EXPECTATIONS 🤓📚💫! And we're not just building apartments 🏢, we're giving the whole city a FULL 🍆💦 SUBSIDIZED
+    CLIMAX 💦🎉 where the only thing going UP 📈 is your satisfaction 😩 and the only thing going DOWN 📉 is your rent 🥵! And
+    those buses 🚌? They're not just FREE 🆓, they're giving BACKSHOTS 🏃‍♂️💨🍑 against the schedule ⏱️so frequent 🔄 you'll be
+    seeing stars 🌟💫 on your way to work 💼‼️ So SEND 📤 this to 5️⃣1️⃣% of your local city council 🧍‍♀️🧍🧍‍♂️ to get DOMMED
+    by MOMMY 🤰 If you get 0 back you’re a CUOMO CUCK 👺 If you get 5 back you’re a CITY SLUT 🗽👙 If you get 20 back you’re a
     CERTIFIED COMMIE CUNT 💅
 
     You must output valid JSON with exactly these fields:
@@ -106,22 +111,43 @@ def convert_to_emojipasta(article_text, original_title):
         "text": "full article content in emojipasta format"
     }
     """))
-    chat.append(user(f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots of emojis and slang for references to people, actions, etc. Use slang for references to popular people and culture. Create an emojipasta headline and full emojipasta text. Article content:\n{article_text}\n\nOutput only valid JSON with 'headline' and 'text' fields."))
 
-    response = chat.sample()
+            retry_instruction = ""
+            if attempt > 0:
+                retry_instruction = f"Previous attempts failed. This is attempt {attempt + 1}. Make sure to output ONLY valid JSON."
 
-    # Parse the JSON response
-    try:
-        result = json.loads(response.content.strip())
-        return result
-    except json.JSONDecodeError as e:
-        print(f"Failed to parse JSON response: {e}")
-        print(f"Raw response: {response.content}")
-        # Fallback: return a basic structure
-        return {
-            "headline": f"🚨 {original_title} 🚨",
-            "text": response.content
-        }
+            chat.append(user(f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots of emojis and slang for references to people, actions, etc. Use slang for references to popular people and culture especially. Include many puns. Create an emojipasta headline and full emojipasta text. Article content:\n{article_text}\n\nOutput only valid JSON with 'headline' and 'text' fields. {retry_instruction}"))
+
+            response = chat.sample()
+
+            # Parse the JSON response
+            result = json.loads(response.content.strip())
+
+            # Validate that we have the required fields
+            if "headline" in result and "text" in result:
+                return result
+            else:
+                print(f"Attempt {attempt + 1}: JSON missing required fields. Retrying...")
+                continue
+
+        except json.JSONDecodeError as e:
+            print(f"Attempt {attempt + 1}: Failed to parse JSON response: {e}")
+            print(f"Raw response: {response.content[:200]}...")
+            if attempt < max_retries - 1:
+                print("Retrying...")
+                continue
+            else:
+                print("Max retries reached. Using fallback.")
+                break
+        except Exception as e:
+            print(f"Attempt {attempt + 1}: Unexpected error: {e}")
+            if attempt < max_retries - 1:
+                print("Retrying...")
+                continue
+            else:
+                print("Max retries reached. Using fallback.")
+                break
+
 
 def save_emojipasta_json(emojipasta_data, original_title):
     """
