@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=10
+NUM_ARTICLES=1
 # Load environment variables from .env file in the backend directory
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)
