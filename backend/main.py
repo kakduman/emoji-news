@@ -1,19 +1,67 @@
 import os
-import requests
-from datetime import datetime
-import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
 import json
+import hashlib
+import requests
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=1
+NUM_ARTICLES=10
+
 # Load environment variables from .env file in the backend directory
-env_path = os.path.join(os.path.dirname(__file__), '.env')
+BASE_DIR = os.path.dirname(__file__)
+NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, '..', 'frontend', 'public', 'news')
+
+env_path = os.path.join(BASE_DIR, '.env')
 load_dotenv(env_path)
+
+
+def hash_article_id(raw_id: str, secret: str) -> str:
+    payload = f"{secret}:{raw_id}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def load_recent_article_hashes(days: int = 7) -> set[str]:
+    if not os.path.isdir(NEWS_OUTPUT_DIR):
+        return set()
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    hashes: set[str] = set()
+
+    for filename in os.listdir(NEWS_OUTPUT_DIR):
+        if not filename.endswith(".json"):
+            continue
+
+        filepath = os.path.join(NEWS_OUTPUT_DIR, filename)
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            hashed_id = data.get("article_hash")
+            date_str = data.get("date")
+            if not hashed_id or not date_str:
+                continue
+
+            try:
+                dt = datetime.fromisoformat(date_str)
+            except ValueError:
+                continue
+
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+
+            if dt >= cutoff:
+                hashes.add(hashed_id)
+        except Exception as exc:
+            print(f"Skipped reading {filepath}: {exc}")
+
+    return hashes
 
 def fetch_news_articles(num_articles=1):
     """
@@ -38,6 +86,8 @@ def fetch_news_articles(num_articles=1):
         title = item.find('title').text
         description = item.find('description').text
         link = item.find('link').text
+        guid_text = item.find('guid').text if item.find('guid') is not None else None
+        article_id = guid_text.split('#')[0] if guid_text else None
 
         print(f"Fetching article {i+1}/{num_articles}: {title}")
 
@@ -77,7 +127,8 @@ def fetch_news_articles(num_articles=1):
                 'title': title,
                 'description': description,
                 'link': link,
-                'content': article_text
+                'content': article_text,
+                'article_id': article_id
             })
 
         except Exception as e:
@@ -89,18 +140,28 @@ def fetch_news_articles(num_articles=1):
                 'link': link,
                 'content': f"""Title: {title}
 
-{description}"""
+{description}""",
+                'article_id': article_id
             })
 
     return articles
 
-def process_single_article(article_data):
+def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     """
     Process a single article: convert to emojipasta and save to JSON.
-    Returns the filename of the saved JSON file.
+    Returns the filename of the saved JSON file or None if skipped.
     """
     article_text = article_data['content']
     original_title = article_data['title']
+    raw_article_id = article_data.get('article_id')
+
+    hashed_id = None
+    if raw_article_id and hash_key:
+        hashed_id = hash_article_id(raw_article_id, hash_key)
+        with hashes_lock:
+            if hashed_id in known_hashes:
+                print(f"Skipping '{original_title}' (duplicate article hash).")
+                return None
 
     print(f"Converting article to emojipasta: {original_title}")
 
@@ -108,7 +169,11 @@ def process_single_article(article_data):
     emojipasta_data = convert_to_emojipasta(article_text, original_title)
 
     # Save to JSON
-    filename = save_emojipasta_json(emojipasta_data, original_title)
+    filename = save_emojipasta_json(emojipasta_data, original_title, hashed_id)
+
+    if hashed_id:
+        with hashes_lock:
+            known_hashes.add(hashed_id)
 
     print(f"Saved: {filename}")
     return filename
@@ -192,7 +257,7 @@ def convert_to_emojipasta(article_text, original_title):
                 break
 
 
-def save_emojipasta_json(emojipasta_data, original_title):
+def save_emojipasta_json(emojipasta_data, original_title, article_hash=None):
     """
     Save the emojipasta data as JSON with metadata.
     """
@@ -200,7 +265,7 @@ def save_emojipasta_json(emojipasta_data, original_title):
     safe_title = "".join(c for c in original_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
     safe_title = safe_title.replace(' ', '_')[:50]  # Limit length
 
-    timestamp = datetime.now()
+    timestamp = datetime.now(timezone.utc)
     timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
 
     # Create the complete JSON object
@@ -211,19 +276,30 @@ def save_emojipasta_json(emojipasta_data, original_title):
     }
 
     # Construct absolute path to frontend/public directory
-    frontend_public_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'public', 'news')
-    os.makedirs(frontend_public_dir, exist_ok=True)
+    os.makedirs(NEWS_OUTPUT_DIR, exist_ok=True)
 
-    filename = os.path.join(frontend_public_dir, f"{timestamp_str}_{safe_title}.json")
+    filename = os.path.join(NEWS_OUTPUT_DIR, f"{timestamp_str}_{safe_title}.json")
 
     with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(json_data, f, ensure_ascii=False, indent=2)
+        payload = {
+            **json_data,
+            **({"article_hash": article_hash} if article_hash else {}),
+        }
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
     return filename
 
 def main():
-    # Get number of articles to process from environment variable, default to 1
+    # Get number of articles to process from environment or default constant
     num_articles = NUM_ARTICLES
+    hash_key = os.getenv("ARTICLE_HASH_KEY")
+    if not hash_key:
+        hash_key = "demo-secret-change-me-041f6a73"
+        print("WARNING: ARTICLE_HASH_KEY not set. Using demo key; please update your .env.")
+
+    recent_hashes = load_recent_article_hashes()
+    print(f"Loaded {len(recent_hashes)} recent article hashes for deduping.")
+    hashes_lock = Lock()
     print(f"Fetching top {num_articles} news articles...")
 
     # Fetch multiple articles
@@ -236,7 +312,10 @@ def main():
     saved_files = []
     with ThreadPoolExecutor(max_workers=min(num_articles, 5)) as executor:  # Limit to 5 concurrent requests
         # Submit all tasks
-        future_to_article = {executor.submit(process_single_article, article): article for article in articles}
+        future_to_article = {
+            executor.submit(process_single_article, article, hash_key, recent_hashes, hashes_lock): article
+            for article in articles
+        }
 
         # Process completed tasks as they finish
         for future in as_completed(future_to_article):
