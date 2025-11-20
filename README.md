@@ -17,3 +17,8 @@ News to Emojipasta converter lives in `backend/` (Python). From that folder:
 - Run: `python main.py`
 
 The script fetches top news articles from BBC RSS, converts them to emojipasta format using Grok, and saves JSON files to `frontend/public/news/`.
+
+## GitHub Pages
+
+- Deploy workflow: `.github/workflows/deploy-pages.yml` builds `frontend/` with pnpm and publishes `frontend/dist` to GitHub Pages on pushes to `master`.
+- Vite `base` is set to the repo name automatically when running in GitHub Actions so assets load correctly under `/REPO/`.
