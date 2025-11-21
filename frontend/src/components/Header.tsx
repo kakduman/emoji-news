@@ -4,8 +4,8 @@ export default function Header() {
   return (
     <div className="bg-white border-b border-slate-200">
       <div className="mx-auto max-w-3xl px-5 py-6 md:px-10">
-        <h1 className="m-0 text-center text-4xl font-serif font-normal leading-tight text-slate-900 md:text-6xl">
-          <Link to="/" className="no-underline text-slate-900">
+        <h1 className="m-0 text-center text-4xl font-serif font-normal leading-tight md:text-6xl">
+          <Link to="/" className="no-underline">
             Schizo News
           </Link>
         </h1>
