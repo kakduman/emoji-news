@@ -4,7 +4,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import ArticlePage from "./components/ArticlePage";
 import Header from "./components/Header";
 import Home from "./pages/Home";
-import { buildUrl, type NewsItem } from "./news";
+import { buildUrl, articleHash, type NewsItem } from "./news";
 
 function App() {
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -22,7 +22,8 @@ function App() {
             const res = await fetch(buildUrl(filename));
             if (!res.ok) throw new Error(`Fetch failed for ${filename} (${res.status})`);
             const data = (await res.json()) as Omit<NewsItem, "path">;
-            return { ...data, path: filename };
+            const id = articleHash(data.headline || filename)
+            return { ...data, path: id, file: filename };
           })
         );
 
@@ -40,11 +41,11 @@ function App() {
     <HashRouter>
       <div className="min-h-screen bg-white text-slate-900">
         <Header />
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-5 py-12 md:px-10">
+        <div className="mx-auto flex max-w-3xl flex-col p-1 md:py-2">
           <Routes>
             <Route path="/" element={<Home news={news} error={error} />} />
             <Route path="/article/:name" element={<ArticlePage news={news} onMissingError={setError} />} />
-            <Route path="*" element={<p className="text-sm text-slate-600">Not found.</p>} />
+            <Route path="*" element={<p className="text-sm text-slate-600">Not found</p>} />
           </Routes>
         </div>
       </div>
