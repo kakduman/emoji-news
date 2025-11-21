@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { buildUrl, formatDate, type NewsItem } from '../news'
+import { formatDate, type NewsItem } from '../news'
 
 type Props = {
   news: NewsItem[]
@@ -22,21 +22,21 @@ function ArticlePage({ news, onMissingError }: Props) {
     const existing = news.find((n) => n.path === decoded)
     if (existing) {
       setArticle(existing)
+      setLoading(false)
       return
     }
-    setLoading(true)
-    fetch(buildUrl(decoded))
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Fetch failed (${res.status})`)
-        const data = (await res.json()) as Omit<NewsItem, 'path'>
-        setArticle({ ...data, path: decoded })
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Failed to load article.'
-        setError(msg)
-        onMissingError(msg)
-      })
-      .finally(() => setLoading(false))
+
+    // If the app's news list hasn't loaded yet, wait for it (this effect will re-run when `news` changes).
+    if (news.length === 0) {
+      setLoading(true)
+      return
+    }
+
+    // News loaded but we couldn't find a matching id -> show not found.
+    const msg = 'Article not found.'
+    setError(msg)
+    onMissingError(msg)
+    setLoading(false)
   }, [decoded, news, onMissingError])
 
   if (!decoded) {
