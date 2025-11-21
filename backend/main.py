@@ -13,7 +13,7 @@ from xai_sdk import Client
 from xai_sdk.chat import user, system
 
 NUM_ARTICLES=1
-RSS_BBC_US="https://feeds.bbci.co.uk/news/rss.xml?edition=us"
+RSS_BBC_US = "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
 
 # Load environment variables from .env file in the backend directory
 BASE_DIR = os.path.dirname(__file__)

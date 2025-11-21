@@ -27,7 +27,9 @@ function App() {
           })
         );
 
-        const sorted = items.sort((a, b) => b.path.localeCompare(a.path));
+  // sort by original filename descending (filenames are lexicographically increasing with time)
+  // fallback to path if file is missing
+  const sorted = items.sort((a, b) => (b.file ?? b.path).localeCompare(a.file ?? a.path));
         setNews(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load news.");
