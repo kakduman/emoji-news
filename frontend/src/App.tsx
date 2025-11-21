@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 
-import ArticlePage from "./components/ArticlePage";
+import ArticlePage from "./pages/Article";
 import Header from "./components/Header";
 import Home from "./pages/Home";
 import { buildUrl, articleHash, type NewsItem } from "./news";
@@ -39,13 +39,13 @@ function App() {
 
   return (
     <HashRouter>
-      <div className="min-h-screen bg-white text-slate-900">
+      <div className="min-h-screen bg-white">
         <Header />
         <div className="mx-auto flex max-w-3xl flex-col p-1 md:py-2">
           <Routes>
             <Route path="/" element={<Home news={news} error={error} />} />
             <Route path="/article/:name" element={<ArticlePage news={news} onMissingError={setError} />} />
-            <Route path="*" element={<p className="text-sm text-slate-600">Not found</p>} />
+            <Route path="*" element={<p className="text-sm">Not found</p>} />
           </Routes>
         </div>
       </div>
