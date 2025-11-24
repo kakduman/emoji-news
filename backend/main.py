@@ -8,18 +8,21 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+import io
+from PIL import Image, ImageOps
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=2
+NUM_ARTICLES = 2
 RSS_BBC_US = "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
 
 # Load environment variables from .env file in the backend directory
 BASE_DIR = os.path.dirname(__file__)
-NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, '..', 'frontend', 'public', 'news')
+NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, "..", "frontend", "public", "news")
+NEWS_THUMBNAILS_DIR = os.path.join(BASE_DIR, "..", "frontend", "public", "thumbnails")
 
-env_path = os.path.join(BASE_DIR, '.env')
+env_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(env_path)
 
 
@@ -41,7 +44,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
 
         filepath = os.path.join(NEWS_OUTPUT_DIR, filename)
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             hashed_id = data.get("article_hash")
@@ -64,6 +67,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
 
     return hashes
 
+
 def fetch_news_articles(num_articles=1):
     """
     Fetch the top news articles from BBC RSS feed.
@@ -78,17 +82,17 @@ def fetch_news_articles(num_articles=1):
     root = ET.fromstring(response.content)
 
     # Find all items
-    items = root.findall('.//item')
+    items = root.findall(".//item")
     if not items:
         raise ValueError("No articles found in RSS feed")
 
     articles = []
     for i, item in enumerate(items[:num_articles]):
-        title = item.find('title').text
-        description = item.find('description').text
-        link = item.find('link').text
-        guid_text = item.find('guid').text if item.find('guid') is not None else None
-        article_id = guid_text.split('#')[0] if guid_text else None
+        title = item.find("title").text
+        description = item.find("description").text
+        link = item.find("link").text
+        guid_text = item.find("guid").text if item.find("guid") is not None else None
+        article_id = guid_text.split("#")[0] if guid_text else None
 
         print(f"Fetching article {i+1}/{num_articles}: {title}")
 
@@ -98,24 +102,24 @@ def fetch_news_articles(num_articles=1):
             article_response.raise_for_status()
 
             # Parse the article page to extract content
-            soup = BeautifulSoup(article_response.text, 'html.parser')
+            soup = BeautifulSoup(article_response.text, "html.parser")
 
             # BBC articles use specific tags for content
             article_paragraphs = []
 
             # Try to find article body paragraphs
-            article_body = soup.find('article')
+            article_body = soup.find("article")
             if article_body:
-                paragraphs = article_body.find_all('p')
+                paragraphs = article_body.find_all("p")
                 article_paragraphs = [p.get_text().strip() for p in paragraphs if p.get_text().strip()]
 
             # Fallback: try data-component="text-block"
             if not article_paragraphs:
-                text_blocks = soup.find_all(attrs={'data-component': 'text-block'})
+                text_blocks = soup.find_all(attrs={"data-component": "text-block"})
                 article_paragraphs = [block.get_text().strip() for block in text_blocks if block.get_text().strip()]
 
             # Combine all content
-            full_article = '\n\n'.join(article_paragraphs) if article_paragraphs else description
+            full_article = "\n\n".join(article_paragraphs) if article_paragraphs else description
 
             # Combine title, description, and full content
             article_text = f"""Title: {title}
@@ -124,37 +128,42 @@ def fetch_news_articles(num_articles=1):
 
 {full_article}"""
 
-            articles.append({
-                'title': title,
-                'description': description,
-                'link': link,
-                'content': article_text,
-                'article_id': article_id
-            })
+            articles.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "link": link,
+                    "content": article_text,
+                    "article_id": article_id,
+                }
+            )
 
         except Exception as e:
             print(f"Error fetching article '{title}': {e}")
             # Add basic info even if full content fetch fails
-            articles.append({
-                'title': title,
-                'description': description,
-                'link': link,
-                'content': f"""Title: {title}
+            articles.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "link": link,
+                    "content": f"""Title: {title}
 
 {description}""",
-                'article_id': article_id
-            })
+                    "article_id": article_id,
+                }
+            )
 
     return articles
+
 
 def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     """
     Process a single article: convert to emojipasta and save to JSON.
     Returns the filename of the saved JSON file or None if skipped.
     """
-    article_text = article_data['content']
-    original_title = article_data['title']
-    raw_article_id = article_data.get('article_id')
+    article_text = article_data["content"]
+    original_title = article_data["title"]
+    raw_article_id = article_data.get("article_id")
 
     hashed_id = None
     if raw_article_id and hash_key:
@@ -169,8 +178,18 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     # Convert to emojipasta
     emojipasta_data = convert_to_emojipasta(article_text, original_title)
 
+    if hashed_id:
+        emojipasta_data["article_id"] = hashed_id
+
+    timestamp = datetime.now(timezone.utc)
+    emojipasta_data["date"] = str(timestamp)
+    timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+
+    image_filename = generate_and_save_image(emojipasta_data, original_title, timestamp_str)
+    emojipasta_data["image"] = os.path.basename(image_filename)
+
     # Save to JSON
-    filename = save_emojipasta_json(emojipasta_data, original_title, hashed_id)
+    filename = save_emojipasta_json(emojipasta_data, original_title, timestamp_str)
 
     if hashed_id:
         with hashes_lock:
@@ -178,6 +197,7 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
 
     print(f"Saved: {filename}")
     return filename
+
 
 def convert_to_emojipasta(article_text, original_title):
     """
@@ -233,9 +253,15 @@ def convert_to_emojipasta(article_text, original_title):
 
             retry_instruction = ""
             if attempt > 0:
-                retry_instruction = f"Previous attempts failed. This is attempt {attempt + 1}. Make sure to output ONLY valid JSON."
+                retry_instruction = (
+                    f"Previous attempts failed. This is attempt {attempt + 1}. Make sure to output ONLY valid JSON."
+                )
 
-            chat.append(user(f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots and lots of emojis and slang. Use as much slang as you can for references to popular people and culture especially. Include as many puns as possible, lots of jokes and puns. Create an emojipasta headline and full emojipasta text. Article content:\n{article_text}\n\nOutput only valid JSON with 'headline' and 'text' fields. {retry_instruction}"))
+            chat.append(
+                user(
+                    f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots and lots of emojis and slang. Use as much slang as you can for references to popular people and culture especially. Include as many puns as possible, lots of jokes and puns. Create an emojipasta headline and full emojipasta text. Article content:\n{article_text}\n\nOutput only valid JSON with 'headline' and 'text' fields. {retry_instruction}"
+                )
+            )
 
             response = chat.sample()
 
@@ -268,37 +294,85 @@ def convert_to_emojipasta(article_text, original_title):
                 break
 
 
-def save_emojipasta_json(emojipasta_data, original_title, article_hash=None):
+def save_emojipasta_json(emojipasta_data, original_title, timestamp_str):
     """
     Save the emojipasta data as JSON with metadata.
     """
     # Create a safe filename from the title
-    safe_title = "".join(c for c in original_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    safe_title = safe_title.replace(' ', '_')[:50]  # Limit length
-
-    timestamp = datetime.now(timezone.utc)
-    timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
-
-    # Create the complete JSON object
-    json_data = {
-        "headline": emojipasta_data["headline"],
-        "date": timestamp.isoformat(),
-        "text": emojipasta_data["text"]
-    }
+    safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
+    safe_title = safe_title.replace(" ", "_")[:50]  # Limit length
 
     # Construct absolute path to frontend/public directory
     os.makedirs(NEWS_OUTPUT_DIR, exist_ok=True)
 
     filename = os.path.join(NEWS_OUTPUT_DIR, f"{timestamp_str}_{safe_title}.json")
 
-    with open(filename, 'w', encoding='utf-8') as f:
-        payload = {
-            **json_data,
-            **({"article_hash": article_hash} if article_hash else {}),
-        }
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(emojipasta_data, f, ensure_ascii=False, indent=2)
 
     return filename
+
+
+def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
+    """
+    Generate an image for the article using xai_sdk image API, post-process to a
+    uniform size (1024x1024) and ensure it's <= 1MB, then save to NEWS_OUTPUT_DIR.
+    Returns the saved image filename or None on failure.
+    """
+    api_key = os.getenv("XAI_API_KEY")
+    if not api_key:
+        print("XAI_API_KEY not set; skipping image generation.")
+        return None
+
+    # Build an evocative emojipasta-style prompt based on the headline
+    headline = emojipasta_data.get("headline", "")
+    brief = emojipasta_data.get("text", "")[:300].replace("\n", " ")
+
+    # Prompt in the style of emojipasta examples: emoji-rich, surreal, poster-like
+    prompt = (
+        f"Generate a news article thumbnail for the headline: '{original_title}'"
+        f"Make sure the content of the image is extremely exaggerated. If there are people, make them have big faces and exaggerated expressions."
+    )
+
+    # Allow overriding image model via env var
+    image_model = "grok-2-image"
+
+    try:
+        client = Client(api_key=api_key, timeout=3600)
+        # Request base64 so we can post-process synchronously
+        image_response = client.image.sample(prompt=prompt, model=image_model, image_format="base64")
+        image_bytes = image_response.image
+
+        # Open with PIL
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+        # Uniform size: center-crop and resize to 2048x1024
+        # size = (2048, 1024)
+        # img = ImageOps.fit(img, size, Image.LANCZOS)
+
+        # Save to JPEG and ensure <= 1MB by adjusting quality
+        out_buffer = io.BytesIO()
+        quality = 100
+        img.save(out_buffer, format="JPEG", quality=quality)
+        data = out_buffer.getvalue()
+        while len(data) > 1_000_000 and quality >= 30:
+            quality -= 5
+            out_buffer = io.BytesIO()
+            img.save(out_buffer, format="JPEG", quality=quality)
+            data = out_buffer.getvalue()
+
+        # Create filename aligned with JSON file naming
+        safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
+        safe_title = safe_title.replace(" ", "_")[:50]
+        image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{timestamp_str}_{safe_title}.jpg")
+        with open(image_filename, "wb") as f:
+            f.write(data)
+
+        return image_filename
+    except Exception as e:
+        print(f"Image generation failed: {e}")
+        return None
+
 
 def main():
     # Get number of articles to process from environment or default constant
@@ -345,12 +419,17 @@ def main():
     if saved_files:
         print("\n--- Sample Preview (first article) ---")
         try:
-            with open(saved_files[0], 'r', encoding='utf-8') as f:
+            with open(saved_files[0], "r", encoding="utf-8") as f:
                 sample_data = json.load(f)
                 print(f"Headline: {sample_data['headline']}")
-                print(f"Text preview: {sample_data['text'][:500]}..." if len(sample_data['text']) > 500 else f"Text: {sample_data['text']}")
+                print(
+                    f"Text preview: {sample_data['text'][:500]}..."
+                    if len(sample_data["text"]) > 500
+                    else f"Text: {sample_data['text']}"
+                )
         except Exception as e:
             print(f"Could not load preview: {e}")
+
 
 if __name__ == "__main__":
     main()
