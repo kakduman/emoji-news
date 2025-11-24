@@ -27,7 +27,8 @@ function App() {
           })
         );
 
-        const sorted = items.sort((a, b) => b.path.localeCompare(a.path));
+        console.log(items[0])
+        const sorted = items.sort((a, b) => (b.file).localeCompare(a.file));
         setNews(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load news.");
