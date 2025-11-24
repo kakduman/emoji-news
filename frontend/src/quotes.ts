@@ -1,5 +1,4 @@
 export const QUOTES: string[] = [
-  "If your shadow argues with you, offer it tea.",
   "Whisper to the walls; they remember more than you expect.",
   "Sometimes my shadow leads; I follow without question.",
   "I throw pebbles at the sky to see which clouds laugh.",
@@ -10,7 +9,7 @@ export const QUOTES: string[] = [
   "Keep a spare thought in your pocket; you’ll need it when the old one wanders off.",
   "The world mocks what it cannot understand.",
   "Never underestimate a sock with a plan.",
-  "Speak to your doubts as if they were houseplants.",
+  "Speak to your doubts as if they were socks.",
   "Keep walking; the horizon is trying to impress you.",
   "Your keyboard knows secrets but types none of them.",
   "Hold onto your eyebrows"
