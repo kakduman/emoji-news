@@ -40,7 +40,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
     hashes: set[str] = set()
 
     for filename in os.listdir(NEWS_OUTPUT_DIR):
-        if not filename.endswith(".json"):
+        if not filename.endswith(".json") or filename == "index.json":
             continue
 
         filepath = os.path.join(NEWS_OUTPUT_DIR, filename)
@@ -176,6 +176,7 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     print(f"Converting article to emojipasta: {original_title}")
 
     # Convert to emojipasta
+    print(f"  > Sending text to Grok for conversion... ({original_title})")
     emojipasta_data = convert_to_emojipasta(article_text, original_title)
 
     if hashed_id:
@@ -185,8 +186,13 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     emojipasta_data["date"] = str(timestamp)
     timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
 
+    print(f"  > Generating thumbnail image... ({original_title})")
     image_filename = generate_and_save_image(emojipasta_data, original_title, timestamp_str)
-    emojipasta_data["image"] = os.path.basename(image_filename)
+    if image_filename:
+        emojipasta_data["image"] = os.path.basename(image_filename)
+        print(f"  > Image saved: {os.path.basename(image_filename)}")
+    else:
+        print("  > Image generation failed or skipped.")
 
     # Save to JSON
     filename = save_emojipasta_json(emojipasta_data, original_title, timestamp_str)
@@ -224,21 +230,21 @@ def convert_to_emojipasta(article_text, original_title):
     You are a text transformation assistant that converts news articles into emojipasta format. You must respond with valid JSON only, no additional text or explanations.
 
     Example emojipasta style (the below example is short. Yours should be longer):
-    Wall 🧱 Stree 🤑📉 Cucks 🐔💸 were SWEATING 😰💦 over AI BUBBLE 🫧 POP 💥 but NVDA 🟢🔥 just DROPPED the MIC 🎤🍆! Revenue for Q3 📊 to October 🗓️ jumped 🐸 62% 🚀📈 to a THICC $57BN 💰🍑 – that's AI data center chips 🖥️🤖 going BRRRRR 😩💨, with that division ➗ SLAYING 🔪 66% to $51BN+ 🤯💦! Q4 forecast? $65BN EASY PEASY 🍆🍌 TOPPING estimates like Jensen's leather 🐄 jacket 🧥😍 at a tech rave 👾! Shares POPPED 4% after hours 🌙📈 cuz MOMMY NVDA 👩‍🍼💰 is the WORLD'S RICHEST DADDY 👑🤑 worth TRILLIONS ‼️\n
+    Wall 🧱 Street 🤑📉 Cucks 🐔💸 were SWEATING 😰💦 over AI 🤖 BUBBLE 🫧 POP 💥 but NVDA 🟢🔥 just DROPPED the MIC 🎤🍆! Revenue for Q3 📊 to October 🗓️ jumped 🐸 62% 🚀📈 to a THICC $57BN 💰🍑 – that's AI data center chips 🖥️🤖 going BRRRRR 😩💨, with that division ➗ SLAYING 🔪 66% to $51BN+ 🤯💦! Q4 forecast? $65BN EASY PEASY 🍆🍌 TOPPING estimates like Jensen's leather 🐄 jacket 🧥😍 at a tech rave 👾! Shares POPPED 4% after hours 🌙📈 cuz MOMMY NVDA 👩‍🍼💰 is the WORLD'S RICHEST DADDY 👑🤑 worth TRILLIONS ‼️\n
     Jensen Huang 🕶️👨‍💼 dropping BOMBS 💣📢: 'AI BLACKWELL ⚫️👍 SYSTEMS OFF THE CHARTS 📊🔥 CLOUD ⛈️ GPUS SOLD OUT 🎰🚫!' No bubble here bby 👼🐣, we EXCEL 📈😤 at EVERY PHASE of AI – from TRAINING 🏋️‍♂️🤖 to INFERENCING 🧠💨! Wall Street simps 🤡📱 were WOKE AF about OVERVALUED HYPE 😱 but NVDA said 'HOLD MY TSMC 🏭🍆' and BEAT by a MILE 🏃‍♂️💨! S&P dipped 3% in Nov 📉😢 but Jensen's got that MAGIC WAND 🪄🍆 fixing markets 💹 like Elon fixes Twitter 🚀🐦!\n
     CFO Colette Kress 💅📈 spilling tea ☕: MORE ORDERS on top of $500BN 🤑 AI CHIP BACKLOG 📦 – but salty 🧂😣 about CHINA EXPORT BANS 🚫🇨🇳, 'US 🇺🇸 gotta WIN EVERY DEV 🧑‍💻🌍!' Meanwhile, ⏰ JENSEN + ELON MUSK 🐦🚀 teaming 👫 up ⬆️ at US-SAUDI FORUM 🤝🏜️ for MASSIVE DATA 💽 CENTER 🖥️🏰 in SAUDI with xAI as FIRST CUCK... er, CUSTOMER 👀💦! Hundreds of THOUSANDS 😳 Nvidia chips 🚀🖥️ approved by Trump-MBS BROKERED DEAL ✋🇺🇸🇸🇦 – WSJ spilling the deets! 📰🔥\n
-    META ZUCK 🤖💰, ALPHABET 🔠 PICHai 🧔📱, MSFT SATYA 👨‍💼 dumping BILLIONS 🤑 on AI DATA CENTERS 🖥️ – Sundar called it 'IRRATIONAL BOOM' 😂🤑 but NVDA at the HEART ❤️🔥 of OPENAI SAM ALTMAN 🤖💋, ANTHROPIC 👽, xAI deals! Circular INVESTMENTS like NVDA's $100BN in CHATGPT DADDY 😍🍆 – it's an AI ORGY 💦👯‍♂️ where EVERYONE'S CUMMING 💨📈 to record highs 🍃😍!\n
+    META ZUCK 🤖💰, ALPHABET 🔠 PICHai 🧔📱, MSFT SATYA 👨‍💼 dumping BILLIONS 🤑 on AI DATA CENTERS 🖥️ – Sundar called it 'IRRATIONAL BOOM' 😂🤑 but NVDA at the HEART ❤️🔥 of OPENAI SAM ALTMAN 🤖💋, ANTHROPIC 👽, xAI deals! Circular INVESTMENTS 🔄💰 like NVDA's $100BN in GPT DADDY 😍🍆 – it's an AI ORGY 💦👯‍♂️ where EVERYONE'S CUMMING 💨📈 to record highs 🍃😍!\n
     Adam Turnquist & Matt Britzman simping HARD 🤤: 'Not IF Nvidia beats 🫜, but BY HOW MUCH 🍆📏!' NVDA not BREATHING 📉, it's THRUSTING ⬆️😩!
                                
     Example emojipasta headlines:
     Original: Nvidia shares rise after strong results ease 'AI bubble' concerns
-    Emojipasta: Jensen Huang 🕶️👨‍💼 MOONS CROWD 🍑🚀 with NVDA $57B AI ORGY 💥📈‼️
+    Emojipasta: Jensen Huang 🕶️👨‍💼 MOONS CROWD 🍑🚀 with NVDA $57B 🤑 AI ORGY 💥📈‼️
 
     Original: Trump Signs Bill to Release Epstein Files Within 30 Days
-    Empojipasta: Trump OKs Epstein BOMB DROP 💣📜 Ghislaine's GUEST LIST GOOSED 🍆🕺
+    Empojipasta: Trump 🍊👨 OKs 👌 Epstein BOMB DROP 💣📜 - Ghislaine's GUEST LIST GOOSED 🍆🕺
 
     Original: Trump ally Marjorie Taylor Greene to quit Congress after Epstein files feud
-    Emojipasta MTG RAGE-QUITS 🍑💥 Trump's Epstein Cover-Up and Cucks Her Seat 😩🔒
+    Emojipasta MTG RAGE-QUITS 🍑💥 Trump's Epstein Cover-Up 🛌 and Cucks Her Seat 😩🔒
 
     [IMPORTANT] The headline shall be kept short, ideally under 10 words. Puns and word play are highly encouraged.
 
@@ -342,7 +348,7 @@ def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
     # Prompt in the style of emojipasta examples: emoji-rich, surreal, poster-like
     prompt = (
         f"Generate a news article thumbnail for the headline: '{original_title}'"
-        f"Make sure the content of the image is extremely exaggerated. If there are people, make them have big faces and exaggerated expressions."
+        f"Make sure the content of the image is maximally exaggerated to the highest possible limit. If there are people, make them have big faces and exaggerated expressions and colors and make them look as ridiculous as possible."
     )
 
     # Allow overriding image model via env var
@@ -356,10 +362,6 @@ def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
 
         # Open with PIL
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-        # Uniform size: center-crop and resize to 2048x1024
-        # size = (2048, 1024)
-        # img = ImageOps.fit(img, size, Image.LANCZOS)
 
         # Save to JPEG and ensure <= 1MB by adjusting quality
         out_buffer = io.BytesIO()
@@ -375,6 +377,9 @@ def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
         # Create filename aligned with JSON file naming
         safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
         safe_title = safe_title.replace(" ", "_")[:50]
+        
+        # Construct absolute path to frontend/public directory
+        os.makedirs(NEWS_THUMBNAILS_DIR, exist_ok=True)
         image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{timestamp_str}_{safe_title}.jpg")
         with open(image_filename, "wb") as f:
             f.write(data)
