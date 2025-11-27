@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false  # we'll push with PAT
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,8 +42,5 @@ jobs:
           git commit -m "chore: add daily emojipasta $(date -u +"%Y-%m-%d")"
 
       - name: Push changes
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          git remote set-url origin https://x-access-token:$PAT_TOKEN@github.com/${{ github.repository }}.git
           git push origin HEAD:${{ github.ref }}
