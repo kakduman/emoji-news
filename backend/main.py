@@ -8,18 +8,22 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+import io
+from PIL import Image
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
-NUM_ARTICLES=1
-RSS_BBC_US="https://feeds.bbci.co.uk/news/rss.xml?edition=us"
+NUM_ARTICLES = 1
+MAX_ARTICLE_CHARS = 100000
+RSS_BBC_US = "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
 
 # Load environment variables from .env file in the backend directory
 BASE_DIR = os.path.dirname(__file__)
-NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, '..', 'frontend', 'public', 'news')
+NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, "..", "frontend", "public", "news")
+NEWS_THUMBNAILS_DIR = os.path.join(BASE_DIR, "..", "frontend", "public", "thumbnails")
 
-env_path = os.path.join(BASE_DIR, '.env')
+env_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(env_path)
 
 
@@ -98,24 +102,24 @@ def fetch_news_articles(num_articles=1):
             article_response.raise_for_status()
 
             # Parse the article page to extract content
-            soup = BeautifulSoup(article_response.text, 'html.parser')
+            soup = BeautifulSoup(article_response.text, "html.parser")
 
             # BBC articles use specific tags for content
             article_paragraphs = []
 
             # Try to find article body paragraphs
-            article_body = soup.find('article')
+            article_body = soup.find("article")
             if article_body:
-                paragraphs = article_body.find_all('p')
+                paragraphs = article_body.find_all("p")
                 article_paragraphs = [p.get_text().strip() for p in paragraphs if p.get_text().strip()]
 
             # Fallback: try data-component="text-block"
             if not article_paragraphs:
-                text_blocks = soup.find_all(attrs={'data-component': 'text-block'})
+                text_blocks = soup.find_all(attrs={"data-component": "text-block"})
                 article_paragraphs = [block.get_text().strip() for block in text_blocks if block.get_text().strip()]
 
             # Combine all content
-            full_article = '\n\n'.join(article_paragraphs) if article_paragraphs else description
+            full_article = "\n\n".join(article_paragraphs) if article_paragraphs else description
 
             # Combine title, description, and full content
             article_text = f"""Title: {title}
@@ -124,37 +128,42 @@ def fetch_news_articles(num_articles=1):
 
 {full_article}"""
 
-            articles.append({
-                'title': title,
-                'description': description,
-                'link': link,
-                'content': article_text,
-                'article_id': article_id
-            })
+            articles.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "link": link,
+                    "content": article_text,
+                    "article_id": article_id,
+                }
+            )
 
         except Exception as e:
             print(f"Error fetching article '{title}': {e}")
             # Add basic info even if full content fetch fails
-            articles.append({
-                'title': title,
-                'description': description,
-                'link': link,
-                'content': f"""Title: {title}
+            articles.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "link": link,
+                    "content": f"""Title: {title}
 
 {description}""",
-                'article_id': article_id
-            })
+                    "article_id": article_id,
+                }
+            )
 
     return articles
+
 
 def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     """
     Process a single article: convert to emojipasta and save to JSON.
     Returns the filename of the saved JSON file or None if skipped.
     """
-    article_text = article_data['content']
-    original_title = article_data['title']
-    raw_article_id = article_data.get('article_id')
+    article_text = article_data["content"]
+    original_title = article_data["title"]
+    raw_article_id = article_data.get("article_id")
 
     hashed_id = None
     if raw_article_id and hash_key:
@@ -169,8 +178,18 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     # Convert to emojipasta
     emojipasta_data = convert_to_emojipasta(article_text, original_title)
 
+    if hashed_id:
+        emojipasta_data["article_id"] = hashed_id
+
+    timestamp = datetime.now(timezone.utc)
+    emojipasta_data["date"] = str(timestamp)
+    timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+
+    image_filename = generate_and_save_image(emojipasta_data, original_title, timestamp_str)
+    emojipasta_data["image"] = os.path.basename(image_filename)
+
     # Save to JSON
-    filename = save_emojipasta_json(emojipasta_data, original_title, hashed_id)
+    filename = save_emojipasta_json(emojipasta_data, original_title, timestamp_str)
 
     if hashed_id:
         with hashes_lock:
@@ -193,33 +212,67 @@ def convert_to_emojipasta(article_text, original_title):
         timeout=3600,
     )
 
-    max_retries = 10
+    # Keep retries small to avoid repeated large requests
+    max_retries = 3
 
     for attempt in range(max_retries):
         try:
             chat = client.chat.create(model="grok-4-1-fast-non-reasoning")
-            chat.append(system("""
+            chat.append(
+                system(
+                    """
     You are a text transformation assistant that converts news articles into emojipasta format. You must respond with valid JSON only, no additional text or explanations.
 
     Example emojipasta style (the below example is short. Yours should be longer):
-    WALL 🧱 STREET 🤑📉 Cucks 🐔💸 were SWEATING 😰💦 over AI BUBBLE 🫧 POP 💥 but NVDA 🟢🔥 just DROPPED the MIC 🎤🍆! Revenue for Q3 📊 to October 🗓️ JUMPED 🐸 62% 🚀📈 to a THICC $57BN 💰🍑 – that's AI DATA CENTER CHIPS 🖥️🤖 going BRRRRR 😩💨, with that division ➗ SLAYING 🔪 66% to $51BN+ 🤯💦! Q4 forecast? $65BN EASY PEASY 🍆🍌 TOPPING estimates like Jensen's leather 🐄 jacket 🧥😍 at a tech rave 👾! Shares POPPED 4% AFTER HOURS 🌙📈 cuz MOMMY NVDA 👩‍🍼💰 is the WORLD'S RICHEST DADDY 👑🤑 worth TRILLIONS ‼️\n
-    JENSEN HUANG 🕶️👨‍💼 dropping BOMBS 💣📢: 'AI BLACKWELL ⚫️👍 SYSTEMS OFF THE CHARTS 📊🔥 CLOUD ⛈️ GPUS SOLD OUT 🎰🚫!' No bubble here bby 👼🐣, we EXCEL 📈😤 at EVERY PHASE of AI – from TRAINING 🏋️‍♂️🤖 to INFERENCING 🧠💨! Wall Street simps 🤡📱 were WOKE AF about OVERVALUED HYPE 😱 but NVDA said 'HOLD MY TSMC 🏭🍆' and BEAT by a MILE 🏃‍♂️💨! S&P dipped 3% in Nov 📉😢 but Jensen's got that MAGIC WAND 🪄🍆 fixing markets 💹 like Elon fixes Twitter 🚀🐦!\n
-    CFO COLETTE KRESS 💅📈 spilling TEA ☕: MORE ORDERS on top of $500BN 🤑 AI CHIP BACKLOG 📦 – but salty 🧂😣 about CHINA EXPORT BANS 🚫🇨🇳, 'US 🇺🇸 gotta WIN EVERY DEV 🧑‍💻🌍!' Meanwhile, ⏰ JENSEN + ELON MUSK 🐦🚀 teaming 👫 up ⬆️ at US-SAUDI FORUM 🤝🏜️ for MASSIVE DATA 💽 CENTER 🖥️🏰 in SAUDI with xAI as FIRST CUCK... er, CUSTOMER 👀💦! Hundreds of THOUSANDS 😳 Nvidia chips 🚀🖥️ approved by Trump-MBS BROKERED DEAL ✋🇺🇸🇸🇦 – WSJ spilling the deets! 📰🔥\n
+    Wall 🧱 Stree 🤑📉 Cucks 🐔💸 were SWEATING 😰💦 over AI BUBBLE 🫧 POP 💥 but NVDA 🟢🔥 just DROPPED the MIC 🎤🍆! Revenue for Q3 📊 to October 🗓️ jumped 🐸 62% 🚀📈 to a THICC $57BN 💰🍑 – that's AI data center chips 🖥️🤖 going BRRRRR 😩💨, with that division ➗ SLAYING 🔪 66% to $51BN+ 🤯💦! Q4 forecast? $65BN EASY PEASY 🍆🍌 TOPPING estimates like Jensen's leather 🐄 jacket 🧥😍 at a tech rave 👾! Shares POPPED 4% after hours 🌙📈 cuz MOMMY NVDA 👩‍🍼💰 is the WORLD'S RICHEST DADDY 👑🤑 worth TRILLIONS ‼️\n
+    Jensen Huang 🕶️👨‍💼 dropping BOMBS 💣📢: 'AI BLACKWELL ⚫️👍 SYSTEMS OFF THE CHARTS 📊🔥 CLOUD ⛈️ GPUS SOLD OUT 🎰🚫!' No bubble here bby 👼🐣, we EXCEL 📈😤 at EVERY PHASE of AI – from TRAINING 🏋️‍♂️🤖 to INFERENCING 🧠💨! Wall Street simps 🤡📱 were WOKE AF about OVERVALUED HYPE 😱 but NVDA said 'HOLD MY TSMC 🏭🍆' and BEAT by a MILE 🏃‍♂️💨! S&P dipped 3% in Nov 📉😢 but Jensen's got that MAGIC WAND 🪄🍆 fixing markets 💹 like Elon fixes Twitter 🚀🐦!\n
+    CFO Colette Kress 💅📈 spilling tea ☕: MORE ORDERS on top of $500BN 🤑 AI CHIP BACKLOG 📦 – but salty 🧂😣 about CHINA EXPORT BANS 🚫🇨🇳, 'US 🇺🇸 gotta WIN EVERY DEV 🧑‍💻🌍!' Meanwhile, ⏰ JENSEN + ELON MUSK 🐦🚀 teaming 👫 up ⬆️ at US-SAUDI FORUM 🤝🏜️ for MASSIVE DATA 💽 CENTER 🖥️🏰 in SAUDI with xAI as FIRST CUCK... er, CUSTOMER 👀💦! Hundreds of THOUSANDS 😳 Nvidia chips 🚀🖥️ approved by Trump-MBS BROKERED DEAL ✋🇺🇸🇸🇦 – WSJ spilling the deets! 📰🔥\n
     META ZUCK 🤖💰, ALPHABET 🔠 PICHai 🧔📱, MSFT SATYA 👨‍💼 dumping BILLIONS 🤑 on AI DATA CENTERS 🖥️ – Sundar called it 'IRRATIONAL BOOM' 😂🤑 but NVDA at the HEART ❤️🔥 of OPENAI SAM ALTMAN 🤖💋, ANTHROPIC 👽, xAI deals! Circular INVESTMENTS like NVDA's $100BN in CHATGPT DADDY 😍🍆 – it's an AI ORGY 💦👯‍♂️ where EVERYONE'S CUMMING 💨📈 to record highs 🍃😍!\n
     Adam Turnquist & Matt Britzman simping HARD 🤤: 'Not IF Nvidia beats 🫜, but BY HOW MUCH 🍆📏!' NVDA not BREATHING 📉, it's THRUSTING ⬆️😩!
+                               
+    Example emojipasta headlines:
+    Original: Nvidia shares rise after strong results ease 'AI bubble' concerns
+    Emojipasta: Jensen Huang 🕶️👨‍💼 MOONS CROWD 🍑🚀 with NVDA $57B AI ORGY 💥📈‼️
+
+    Original: Trump Signs Bill to Release Epstein Files Within 30 Days
+    Empojipasta: Trump OKs Epstein BOMB DROP 💣📜 Ghislaine's GUEST LIST GOOSED 🍆🕺
+
+    Original: Trump ally Marjorie Taylor Greene to quit Congress after Epstein files feud
+    Emojipasta MTG RAGE-QUITS 🍑💥 Trump's Epstein Cover-Up and Cucks Her Seat 😩🔒
+
+    [IMPORTANT] The headline shall be kept short, ideally under 10 words. Puns and word play are highly encouraged.
 
     You must output valid JSON with exactly these fields:
     {
         "headline": "emojipasta version of the article title",
         "text": "full article content in emojipasta format"
     }
-    """))
+    """
+                )
+            )
 
             retry_instruction = ""
             if attempt > 0:
-                retry_instruction = f"Previous attempts failed. This is attempt {attempt + 1}. Make sure to output ONLY valid JSON."
+                retry_instruction = (
+                    f"Previous attempts failed. This is attempt {attempt + 1}. Make sure to output ONLY valid JSON."
+                )
 
-            chat.append(user(f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots and lots of emojis and slang. Use as much slang as you can for references to popular people and culture especially. Include as many puns as possible, lots of jokes and puns. Create an emojipasta headline and full emojipasta text. Article content:\n{article_text}\n\nOutput only valid JSON with 'headline' and 'text' fields. {retry_instruction}"))
+            # Truncate very long articles to keep token usage bounded
+            if len(article_text) > MAX_ARTICLE_CHARS:
+                # Try to cut on a paragraph boundary for readability
+                truncated = article_text[:MAX_ARTICLE_CHARS]
+                last_break = truncated.rfind("\n\n")
+                if last_break > 0:
+                    truncated = truncated[:last_break]
+                article_for_model = truncated + "\n\n[TRUNCATED]"
+            else:
+                article_for_model = article_text
+
+            chat.append(
+                user(
+                    f"Convert this news article to emojipasta format by extracting relevant facts from it and using those facts to come up with an emojipasta article that has lots and lots of emojis and slang. Use as much slang as you can for references to popular people and culture especially. Include as many puns as possible, lots of jokes and puns. Create an emojipasta headline and full emojipasta text. Article content:\n{article_for_model}\n\nOutput only valid JSON with 'headline' and 'text' fields. {retry_instruction}"
+                )
+            )
 
             response = chat.sample()
 
@@ -252,37 +305,85 @@ def convert_to_emojipasta(article_text, original_title):
                 break
 
 
-def save_emojipasta_json(emojipasta_data, original_title, article_hash=None):
+def save_emojipasta_json(emojipasta_data, original_title, timestamp_str):
     """
     Save the emojipasta data as JSON with metadata.
     """
     # Create a safe filename from the title
-    safe_title = "".join(c for c in original_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    safe_title = safe_title.replace(' ', '_')[:50]  # Limit length
-
-    timestamp = datetime.now(timezone.utc)
-    timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
-
-    # Create the complete JSON object
-    json_data = {
-        "headline": emojipasta_data["headline"],
-        "date": timestamp.isoformat(),
-        "text": emojipasta_data["text"]
-    }
+    safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
+    safe_title = safe_title.replace(" ", "_")[:50]  # Limit length
 
     # Construct absolute path to frontend/public directory
     os.makedirs(NEWS_OUTPUT_DIR, exist_ok=True)
 
     filename = os.path.join(NEWS_OUTPUT_DIR, f"{timestamp_str}_{safe_title}.json")
 
-    with open(filename, 'w', encoding='utf-8') as f:
-        payload = {
-            **json_data,
-            **({"article_hash": article_hash} if article_hash else {}),
-        }
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(emojipasta_data, f, ensure_ascii=False, indent=2)
 
     return filename
+
+
+def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
+    """
+    Generate an image for the article using xai_sdk image API, post-process to a
+    uniform size (1024x1024) and ensure it's <= 1MB, then save to NEWS_OUTPUT_DIR.
+    Returns the saved image filename or None on failure.
+    """
+    api_key = os.getenv("XAI_API_KEY")
+    if not api_key:
+        print("XAI_API_KEY not set; skipping image generation.")
+        return None
+
+    # Build an evocative emojipasta-style prompt based on the headline
+    headline = emojipasta_data.get("headline", "")
+    brief = emojipasta_data.get("text", "")[:300].replace("\n", " ")
+
+    # Prompt in the style of emojipasta examples: emoji-rich, surreal, poster-like
+    prompt = (
+        f"Generate a news article thumbnail for the headline: '{original_title}'"
+        f"Make sure the content of the image is extremely exaggerated. If there are people, make them have big faces and exaggerated expressions."
+    )
+
+    # Allow overriding image model via env var
+    image_model = "grok-2-image"
+
+    try:
+        client = Client(api_key=api_key, timeout=3600)
+        # Request base64 so we can post-process synchronously
+        image_response = client.image.sample(prompt=prompt, model=image_model, image_format="base64")
+        image_bytes = image_response.image
+
+        # Open with PIL
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+        # Uniform size: center-crop and resize to 2048x1024
+        # size = (2048, 1024)
+        # img = ImageOps.fit(img, size, Image.LANCZOS)
+
+        # Save to JPEG and ensure <= 1MB by adjusting quality
+        out_buffer = io.BytesIO()
+        quality = 100
+        img.save(out_buffer, format="JPEG", quality=quality)
+        data = out_buffer.getvalue()
+        while len(data) > 1_000_000 and quality >= 30:
+            quality -= 5
+            out_buffer = io.BytesIO()
+            img.save(out_buffer, format="JPEG", quality=quality)
+            data = out_buffer.getvalue()
+
+        # Create filename aligned with JSON file naming
+        safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
+        safe_title = safe_title.replace(" ", "_")[:50]
+        image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{timestamp_str}_{safe_title}.jpg")
+        with open(image_filename, "wb") as f:
+            f.write(data)
+
+        return image_filename
+    except Exception as e:
+        print(f"Image generation failed: {e}")
+        return None
+
 
 def main():
     # Get number of articles to process from environment or default constant
@@ -329,12 +430,17 @@ def main():
     if saved_files:
         print("\n--- Sample Preview (first article) ---")
         try:
-            with open(saved_files[0], 'r', encoding='utf-8') as f:
+            with open(saved_files[0], "r", encoding="utf-8") as f:
                 sample_data = json.load(f)
                 print(f"Headline: {sample_data['headline']}")
-                print(f"Text preview: {sample_data['text'][:500]}..." if len(sample_data['text']) > 500 else f"Text: {sample_data['text']}")
+                print(
+                    f"Text preview: {sample_data['text'][:500]}..."
+                    if len(sample_data["text"]) > 500
+                    else f"Text: {sample_data['text']}"
+                )
         except Exception as e:
             print(f"Could not load preview: {e}")
+
 
 if __name__ == "__main__":
     main()

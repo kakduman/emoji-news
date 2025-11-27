@@ -1,4 +1,7 @@
 .env
+.venv
+frontend/public/news/index.json
+
 # Logs
 logs
 *.log

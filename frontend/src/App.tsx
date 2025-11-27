@@ -27,7 +27,7 @@ function App() {
           })
         );
 
-        const sorted = items.sort((a, b) => b.path.localeCompare(a.path));
+        const sorted = items.sort((a, b) => (b.file).localeCompare(a.file));
         setNews(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load news.");
@@ -41,13 +41,11 @@ function App() {
     <HashRouter>
       <div className="min-h-screen bg-white">
         <Header />
-        <div className="mx-auto flex max-w-3xl flex-col p-1 md:py-2">
           <Routes>
             <Route path="/" element={<Home news={news} error={error} />} />
             <Route path="/article/:name" element={<ArticlePage news={news} onMissingError={setError} />} />
             <Route path="*" element={<p className="text-sm">Not found</p>} />
           </Routes>
-        </div>
       </div>
     </HashRouter>
   );
