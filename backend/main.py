@@ -48,7 +48,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            hashed_id = data.get("article_hash")
+            hashed_id = data.get("article_id")
             date_str = data.get("date")
             if not hashed_id or not date_str:
                 continue
