@@ -336,8 +336,8 @@ def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
         return None
 
     # Build an evocative emojipasta-style prompt based on the headline
-    headline = emojipasta_data.get("headline", "")
-    brief = emojipasta_data.get("text", "")[:300].replace("\n", " ")
+    _ = emojipasta_data.get("headline", "")
+    _ = emojipasta_data.get("text", "")[:300].replace("\n", " ")
 
     # Prompt in the style of emojipasta examples: emoji-rich, surreal, poster-like
     prompt = (
