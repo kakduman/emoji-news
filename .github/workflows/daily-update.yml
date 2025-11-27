@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      ARTICLE_HASH_KEY: ${{ secrets.ARTICLE_HASH_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
