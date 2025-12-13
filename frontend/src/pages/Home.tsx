@@ -18,7 +18,7 @@ export default function Home({ news, error }: { news: NewsItem[]; error: string 
         <div className="flex flex-col font-serif">
           <div className="mx-auto text-center border-b border-neutral-200 p-2 w-full">
             <blockquote className="font-serif mx-auto text-sm text-neutral-500 md:text-base">
-              Updated every few hours by certified FREAKS
+              Updated every few hours by professional waste collectors.
             </blockquote>
           </div>
           <div className="mx-auto flex max-w-3xl flex-col">

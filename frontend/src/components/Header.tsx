@@ -12,7 +12,7 @@ export default function Header() {
         </Link>
         <h1 className="m-0 text-center text-4xl font-serif font-normal leading-tight sm:text-6xl">
           <Link to="/" className="no-underline font-bold">
-            Schizo News
+            Dump Truck News
           </Link>
         </h1>
       </div>
