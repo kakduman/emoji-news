@@ -1,25 +1,49 @@
 # Dump Truck News
 
-The greatest news.
+Live news converted into degenerate emojipasta.
+
+This repo is a small monorepo:
+- `backend/` fetches BBC RSS items and converts them into emojipasta JSON.
+- `frontend/` (Vite + React + TypeScript + Tailwind) renders a feed from JSON in `frontend/public/news/`.
 
 ## Frontend
-Frontend lives in `frontend/` (Vite + React + TypeScript with Tailwind). From that folder:
+
+From `frontend/`:
 
 - Install deps: `pnpm install`
 - Dev server: `pnpm dev`
 - Lint: `pnpm lint`
 - Build: `pnpm build`
 
+Notes:
+- `pnpm dev` runs `pnpm news:index` first to regenerate `public/news/index.json`.
+- News JSON is served as static assets from `frontend/public/news/`.
+
 ## Backend
-News to Emojipasta converter lives in `backend/` (Python). From that folder:
+
+From `backend/`:
 
 - Install deps: `pip install -r requirements.txt`
-- Set environment variables in `.env`:
-  - `XAI_API_KEY`: Your XAI API key for Grok
-  - `ARTICLE_HASH_KEY`: Secret salt used to hash RSS GUIDs for deduping (example: `demo-secret-change-me-041f6a73`)
+- Create `backend/.env` with:
+  - `XAI_API_KEY`: XAI API key for Grok
+  - `ARTICLE_HASH_KEY`: secret salt used to hash RSS GUIDs for deduping (example: `demo-secret-change-me-041f6a73`)
 - Run: `python main.py`
 
-The script fetches top news articles from BBC RSS, converts them to emojipasta format using Grok, hashes the article GUID for deduplication, and saves JSON files to `frontend/public/news/`. Only articles with hashes not seen in the last 7 days are published.
+What it does:
+- Fetches top articles from a BBC RSS feed
+- Converts to emojipasta via Grok
+- Hashes the article GUID for deduplication
+- Writes JSON files into `frontend/public/news/`
+
+Deduping:
+- Only articles with hashes not seen in the last 7 days are published.
+
+## Useful scripts (frontend)
+
+From `frontend/`:
+
+- `pnpm news:index`: regenerates `public/news/index.json`
+- `pnpm sitemap`: regenerates `public/sitemap.xml` (uses `../CNAME` if present)
 
 ## GitHub Pages
 

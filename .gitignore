@@ -1,6 +1,7 @@
 .env
 .venv
 frontend/public/news/index.json
+sitemap.xml
 
 # Logs
 logs
