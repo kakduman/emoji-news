@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import ArticlePage from "./pages/Article";
 import About from "./pages/About";
@@ -40,7 +40,7 @@ function App() {
   }, []);
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <PageViewTracker />
       <div className="min-h-screen bg-white">
         <Header />
@@ -51,7 +51,7 @@ function App() {
           <Route path="*" element={<p className="text-sm">Not found</p>} />
         </Routes>
       </div>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 
