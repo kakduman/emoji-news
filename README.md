@@ -1,5 +1,7 @@
 # Dump Truck News
 
+<https://www.dumptrucknews.com>
+
 Live news converted into degenerate emojipasta.
 
 This repo is a small monorepo:
