@@ -8,9 +8,10 @@
     "dev": "vite",
     "predev": "pnpm news:index",
     "build": "tsc -b && vite build",
-    "prebuild": "pnpm news:index",
+    "prebuild": "pnpm news:index && pnpm sitemap",
     "lint": "eslint .",
     "news:index": "node scripts/gen-news-index.mjs",
+    "sitemap": "CNAME_DOMAIN=$(cat ../CNAME 2>/dev/null || true) node scripts/gen-sitemap.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -7,7 +7,7 @@ export function PageViewTracker() {
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("event", "page_view", {
-        page_path: location.pathname + location.search,
+        page_path: location.pathname,
       });
     }
   }, [location]);
