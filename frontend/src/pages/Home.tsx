@@ -24,10 +24,12 @@ export default function Home({ news, error }: { news: NewsItem[]; error: string 
           <div className="mx-auto flex max-w-4xl flex-col">
             {news.map((item) => (
               <Link key={item.path} to={`/article/${encodeURIComponent(item.path)}`}>
-                <div className="flex flex-row items-center justify-end gap-10 border-b border-neutral-200 p-4 bg-transparent hover:bg-neutral-100 transition ">
+                <div className="flex flex-row-reverse md:flex-row items-center justify-end gap-3 md:gap-10 border-b border-neutral-200 p-4 bg-transparent hover:bg-neutral-100 transition ">
                   <article className="w-full">
-                    <h2 className="text-xl font-bold leading-snug md:text-3xl">{item.headline}</h2>
-                    <p className="mt-2 text-sm leading-relaxed md:mt-3">{truncate(item.text, previewLimit)}</p>
+                    <h2 className="text-lg font-bold leading-snug md:text-3xl">{item.headline}</h2>
+                    {!isMobile ? (
+                      <p className="mt-2 text-sm leading-relaxed md:mt-3">{truncate(item.text, previewLimit)}</p>
+                    ) : null}
                     <div className="flex flex-row justify-between mt-2 ">
                       <p className="text-sm text-neutral-500">{formatDate(item.date)}</p>
                       <p className="text-sm underline-offset-2 underline font-semibold text-neutral-700">READ MORE</p>
@@ -37,7 +39,7 @@ export default function Home({ news, error }: { news: NewsItem[]; error: string 
                     <img
                       src={`${import.meta.env.BASE_URL}thumbnails/${item.image}`}
                       alt=""
-                      className="h-48 w-48 shrink-0 object-cover rounded-md"
+                      className="h-28 md:h-48 w-28 md:w-48 shrink-0 object-cover"
                     />
                   )}
                 </div>
