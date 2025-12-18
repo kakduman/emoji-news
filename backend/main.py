@@ -8,14 +8,15 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-import io
-from PIL import Image
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
 
+from utils import generate_thumbnail
+
 NUM_ARTICLES = 1
 MAX_ARTICLE_CHARS = 100000
+MAX_IMAGE_GEN_ATTEMPTS = 3
 RSS_BBC_US = "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
 
 # Load environment variables from .env file in the backend directory
@@ -45,7 +46,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
 
         filepath = os.path.join(NEWS_OUTPUT_DIR, filename)
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             hashed_id = data.get("article_id")
@@ -68,6 +69,7 @@ def load_recent_article_hashes(days: int = 7) -> set[str]:
 
     return hashes
 
+
 def fetch_news_articles(num_articles=1):
     """
     Fetch the top news articles from BBC RSS feed.
@@ -82,17 +84,17 @@ def fetch_news_articles(num_articles=1):
     root = ET.fromstring(response.content)
 
     # Find all items
-    items = root.findall('.//item')
+    items = root.findall(".//item")
     if not items:
         raise ValueError("No articles found in RSS feed")
 
     articles = []
     for i, item in enumerate(items[:num_articles]):
-        title = item.find('title').text
-        description = item.find('description').text
-        link = item.find('link').text
-        guid_text = item.find('guid').text if item.find('guid') is not None else None
-        article_id = guid_text.split('#')[0] if guid_text else None
+        title = item.find("title").text
+        description = item.find("description").text
+        link = item.find("link").text
+        guid_text = item.find("guid").text if item.find("guid") is not None else None
+        article_id = guid_text.split("#")[0] if guid_text else None
 
         print(f"Fetching article {i+1}/{num_articles}: {title}")
 
@@ -186,16 +188,32 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     emojipasta_data["date"] = str(timestamp)
     timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
 
-    # print(f"  > Generating thumbnail image... ({original_title})")
-    # image_filename = generate_and_save_image(emojipasta_data, original_title, timestamp_str)
-    # if image_filename:
-    #     emojipasta_data["image"] = os.path.basename(image_filename)
-    #     print(f"  > Image saved: {os.path.basename(image_filename)}")
-    # else:
-    #     print("  > Image generation failed or skipped.")
+    safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
+    safe_title = safe_title.replace(" ", "_")[:50]
+    safe_title = f"{timestamp_str}_{safe_title}"
+
+    print(f"  > Generating thumbnail image...")
+    for attempt in range(MAX_IMAGE_GEN_ATTEMPTS):
+        try:
+            image = generate_thumbnail(article_data["content"], emojipasta_data["headline"])
+            if image:
+                os.makedirs(NEWS_THUMBNAILS_DIR, exist_ok=True)
+                image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{safe_title}.png")
+                with open(image_filename, "wb") as f:
+                    f.write(image)
+                break
+        except Exception as e:
+            print(f"Image generation attempt {attempt + 1} failed (likely due to content policy restrictions): {e}")
+            image = None
+
+    if image_filename:
+        emojipasta_data["image"] = os.path.basename(image_filename)
+        print(f"  > Image saved: {os.path.basename(image_filename)}")
+    else:
+        print(f"  > Image generation failed after {MAX_IMAGE_GEN_ATTEMPTS} attempts.")
 
     # Save to JSON
-    filename = save_emojipasta_json(emojipasta_data, original_title, timestamp_str)
+    filename = save_emojipasta_json(emojipasta_data, safe_title)
 
     if hashed_id:
         with hashes_lock:
@@ -203,6 +221,7 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
 
     print(f"Saved: {filename}")
     return filename
+
 
 def convert_to_emojipasta(article_text, original_title):
     """
@@ -311,83 +330,20 @@ def convert_to_emojipasta(article_text, original_title):
                 break
 
 
-def save_emojipasta_json(emojipasta_data, original_title, timestamp_str):
+def save_emojipasta_json(emojipasta_data, safe_title):
     """
     Save the emojipasta data as JSON with metadata.
     """
-    # Create a safe filename from the title
-    safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
-    safe_title = safe_title.replace(" ", "_")[:50]  # Limit length
 
     # Construct absolute path to frontend/public directory
     os.makedirs(NEWS_OUTPUT_DIR, exist_ok=True)
 
-    filename = os.path.join(NEWS_OUTPUT_DIR, f"{timestamp_str}_{safe_title}.json")
+    filename = os.path.join(NEWS_OUTPUT_DIR, f"{safe_title}.json")
 
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(emojipasta_data, f, ensure_ascii=False, indent=2)
 
     return filename
-
-
-def generate_and_save_image(emojipasta_data, original_title, timestamp_str):
-    """
-    Generate an image for the article using xai_sdk image API, post-process to a
-    uniform size (1024x1024) and ensure it's <= 1MB, then save to NEWS_OUTPUT_DIR.
-    Returns the saved image filename or None on failure.
-    """
-    api_key = os.getenv("XAI_API_KEY")
-    if not api_key:
-        print("XAI_API_KEY not set; skipping image generation.")
-        return None
-
-    # Build an evocative emojipasta-style prompt based on the headline
-    _ = emojipasta_data.get("headline", "")
-    _ = emojipasta_data.get("text", "")[:300].replace("\n", " ")
-
-    # Prompt in the style of emojipasta examples: emoji-rich, surreal, poster-like
-    prompt = (
-        f"Generate a news article thumbnail for the headline: '{original_title}'"
-        f"Make sure the content of the image is maximally exaggerated to the highest possible limit. If there are people, make them have big faces and exaggerated expressions and colors and make them look as ridiculous as possible."
-    )
-
-    # Allow overriding image model via env var
-    image_model = "grok-2-image"
-
-    try:
-        client = Client(api_key=api_key, timeout=3600)
-        # Request base64 so we can post-process synchronously
-        image_response = client.image.sample(prompt=prompt, model=image_model, image_format="base64")
-        image_bytes = image_response.image
-
-        # Open with PIL
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-        # Save to JPEG and ensure <= 1MB by adjusting quality
-        out_buffer = io.BytesIO()
-        quality = 100
-        img.save(out_buffer, format="JPEG", quality=quality)
-        data = out_buffer.getvalue()
-        while len(data) > 1_000_000 and quality >= 30:
-            quality -= 5
-            out_buffer = io.BytesIO()
-            img.save(out_buffer, format="JPEG", quality=quality)
-            data = out_buffer.getvalue()
-
-        # Create filename aligned with JSON file naming
-        safe_title = "".join(c for c in original_title if c.isalnum() or c in (" ", "-", "_")).rstrip()
-        safe_title = safe_title.replace(" ", "_")[:50]
-        
-        # Construct absolute path to frontend/public directory
-        os.makedirs(NEWS_THUMBNAILS_DIR, exist_ok=True)
-        image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{timestamp_str}_{safe_title}.jpg")
-        with open(image_filename, "wb") as f:
-            f.write(data)
-
-        return image_filename
-    except Exception as e:
-        print(f"Image generation failed: {e}")
-        return None
 
 
 def main():
