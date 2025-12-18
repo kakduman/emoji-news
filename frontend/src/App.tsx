@@ -23,7 +23,7 @@ function App() {
           filenames.map(async (filename) => {
             const res = await fetch(buildUrl(filename));
             if (!res.ok) throw new Error(`Fetch failed for ${filename} (${res.status})`);
-            const data = (await res.json()) as Omit<NewsItem, "path">;
+            const data = (await res.json()) as Omit<NewsItem, "path" | "file">;
             const id = articleHash(data.headline || filename);
             return { ...data, path: id, file: filename };
           })

@@ -207,7 +207,7 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
             image = None
 
     if image_filename:
-        emojipasta_data["image"] = os.path.basename(image_filename)
+        emojipasta_data["image"] = os.path.join('thumbnails', os.path.basename(image_filename))
         print(f"  > Image saved: {os.path.basename(image_filename)}")
     else:
         print(f"  > Image generation failed after {MAX_IMAGE_GEN_ATTEMPTS} attempts.")
