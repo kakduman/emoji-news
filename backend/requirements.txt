@@ -1,5 +1,6 @@
 requests
 beautifulsoup4
+openai
+Pillow
 python-dotenv
 xai-sdk
-Pillow
