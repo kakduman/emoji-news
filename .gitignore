@@ -1,5 +1,6 @@
 .env
 .venv
+.pnpm-store
 frontend/public/news/index.json
 sitemap.xml
 temp*
