@@ -39,6 +39,9 @@ export default function Home({ news, error }: { news: NewsItem[]; error: string 
                     <img
                       src={`${import.meta.env.BASE_URL}thumbnails/${item.image}`}
                       alt=""
+                      loading="lazy"
+                      width={192}
+                      height={192}
                       className="h-28 md:h-48 w-28 md:w-48 shrink-0 object-cover"
                     />
                   )}

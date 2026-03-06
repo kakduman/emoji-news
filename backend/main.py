@@ -1,3 +1,4 @@
+import io
 import os
 import json
 import hashlib
@@ -8,6 +9,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+from PIL import Image
 
 from xai_sdk import Client
 from xai_sdk.chat import user, system
@@ -26,6 +28,16 @@ NEWS_THUMBNAILS_DIR = os.path.join(BASE_DIR, "..", "frontend", "public", "thumbn
 
 env_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(env_path)
+
+THUMBNAIL_SIZE = (384, 384)
+WEBP_QUALITY = 80
+
+
+def optimize_and_save_thumbnail(raw_image_bytes: bytes, output_path: str):
+    """Resize to 2x display size and save as WebP for fast loading."""
+    img = Image.open(io.BytesIO(raw_image_bytes))
+    img = img.resize(THUMBNAIL_SIZE, Image.LANCZOS)
+    img.save(output_path, "WEBP", quality=WEBP_QUALITY)
 
 
 def hash_article_id(raw_id: str, secret: str) -> str:
@@ -193,24 +205,24 @@ def process_single_article(article_data, hash_key, known_hashes, hashes_lock):
     safe_title = f"{timestamp_str}_{safe_title}"
 
     print(f"  > Generating thumbnail image...")
+    image_filename = None
     for attempt in range(MAX_IMAGE_GEN_ATTEMPTS):
         try:
             image = generate_thumbnail(article_data["content"], emojipasta_data["headline"])
             if image:
                 os.makedirs(NEWS_THUMBNAILS_DIR, exist_ok=True)
-                image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{safe_title}.png")
-                with open(image_filename, "wb") as f:
-                    f.write(image)
+                image_filename = os.path.join(NEWS_THUMBNAILS_DIR, f"{safe_title}.webp")
+                optimize_and_save_thumbnail(image, image_filename)
                 break
         except Exception as e:
-            print(f"Image generation attempt {attempt + 1} failed (likely due to content policy restrictions): {e}")
+            print(f"Image generation attempt {attempt + 1} failed: {e}")
             image = None
 
     if image_filename:
         emojipasta_data["image"] = os.path.basename(image_filename)
         print(f"  > Image saved: {os.path.basename(image_filename)}")
     else:
-        print(f"  > Image generation failed after {MAX_IMAGE_GEN_ATTEMPTS} attempts.")
+        print(f"  > Skipping thumbnail (failed after {MAX_IMAGE_GEN_ATTEMPTS} attempts). Article will be saved without image.")
 
     # Save to JSON
     filename = save_emojipasta_json(emojipasta_data, safe_title)
